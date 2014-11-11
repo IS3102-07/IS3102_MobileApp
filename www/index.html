@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="format-detection" content="telephone=no" />
+        <!-- WARNING: for iOS 7, remove the width=device-width and height=device-height attributes. See https://issues.apache.org/jira/browse/CB-4323 -->
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=medium-dpi" />
+
+        <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <title>Island Furniture Mobile App</title>
+        <link rel="stylesheet" href="css/themes/islandfurniture.min.css" />
+        <link rel="stylesheet" href="css/themes/jquery.mobile.icons.min.css" />
+        <link rel="stylesheet" href="jquery.mobile-1.4.4/jquery.mobile.structure-1.4.4.min.css" />
+        <link rel="stylesheet" href="dist/css/bootstrap.min.css">
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="dist/css/bootstrap-theme.min.css">
+        <!-- Latest compiled and minified JavaScript -->
+        <script src="dist/js/bootstrap.min.js"></script>
+        <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+        <script type="text/javascript" src="js/jquery-2.1.1.js"></script>
+        <script src="jquery.mobile-1.4.4/jquery.mobile-1.4.4.js"></script>
+        <script type="text/javascript" src="js/index.js"></script>
+        <script type="text/javascript" src="cordova.js"></script>
+
+
+    </head>
+    <body>
+
+
+        <script>
+            //global variables
+            var arrShoppingList = [];
+            var country = "default";
+            var listOfFurniture;
+            var url = "";
+            var email = "";
+            //var ip = "192.168.1.126";
+            //ip for hq server: 
+            var ip = "192.168.1.200";
+
+            var qrCodeResult;
+
+            function LineItem(SKU, quantity) {
+                this.SKU = SKU;
+                this.quantity = quantity;
+            }
+
+            var jqueryReady = $.Deferred();
+            var cordovaReady = $.Deferred();
+            $(function () {
+                jqueryReady.resolve();
+            });
+            document.addEventListener("deviceready", function () {
+                cordovaReady.resolve();
+            }, false);
+
+            $.when(jqueryReady, cordovaReady).done(function () {
+                $(document).on('click', '.plus', function () {
+                    var SKU = $(this).text();
+                    var qty = parseInt($("#lblQuantity" + SKU).text());
+                    qty += 1;
+                    setQtyOfSKUInArray(SKU, qty);
+                    $("#lblQuantity" + SKU).text(qty);
+                });
+
+                $(document).on('click', '.minus', function () {
+                    var SKU = $(this).text();
+                    var qty = $("#lblQuantity" + SKU).text();
+                    if (qty != 0) {
+                        qty -= 1;
+                    }
+                    setQtyOfSKUInArray(SKU, qty);
+                    $("#lblQuantity" + SKU).text(qty);
+                });
+
+                $(document).on('click', '.remove', function () {
+                    var SKU = $(this).text();
+                    $("#tr" + SKU).remove();
+                    removeLineItemFromArr(SKU);
+                });
+
+                function increaseQty(SKU) {
+                    var qty = parseInt($("#lblQuantity" + SKU).text());
+                    qty += 1;
+                    setQtyOfSKUInArray(SKU, qty);
+                    $("#lblQuantity" + SKU).text(qty);
+                }
+                function decreaseQty(SKU) {
+                    var qty = $("#lblQuantity" + SKU).text();
+                    if (qty != 0) {
+                        qty -= 1;
+                    }
+                    setQtyOfSKUInArray(SKU, qty);
+                    $("#lblQuantity" + SKU).text(qty);
+                }
+                function removeLineItem(SKU) {
+                    $("#tr" + SKU).remove();
+                    removeLineItemFromArr(SKU);
+                }
+
+                function setQtyOfSKUInArray(SKU, qty) {
+                    if (arrShoppingList == "" || arrShoppingList == null) {
+                        alert("Shopping list is empty");
+                    } else {
+                        for (var i = 0; i < arrShoppingList.length; i++) {
+                            if (arrShoppingList[i].SKU == SKU) {
+                                arrShoppingList[i].quantity = parseInt(qty);
+                            }
+                        }
+                    }
+                }
+
+                function removeLineItemFromArr(SKU) {
+                    if (arrShoppingList == "" || arrShoppingList == null) {
+                    } else {
+                        for (var i = 0; i < arrShoppingList.length; i++) {
+                            if (arrShoppingList[i].SKU == SKU) {
+                                arrShoppingList.splice(i, 1);
+                            }
+                        }
+                    }
+                }
+
+                $("#addItemToCart").click(function () {
+                    cordova.plugins.barcodeScanner.scan(
+                            function (result) {
+                                qrCodeResult = result.text;
+
+                                var found = false;
+                                if (qrCodeResult != "") {
+                                    alert("QR Code found: " + qrCodeResult);
+                                    var SKU = qrCodeResult;
+                                    qrCodeResult = "";
+                                    for (var i = 0; i < arrShoppingList.length; i++) {
+                                        if (arrShoppingList[i].SKU == SKU) {
+                                            increaseQty(SKU);
+                                            found = true;
+                                        }
+                                    }
+                                    if (!found) {
+                                        var item;
+                                        var itemName;
+
+                                        url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.itementity/itemname";
+                                        $.ajax({
+                                            type: "GET",
+                                            async: false,
+                                            url: url,
+                                            data: {'SKU': SKU},
+                                            dataType: "text",
+                                            success: function (val) {
+                                                itemName = val;
+
+                                                if (itemName != "" || itemName != null) {
+                                                    item = new LineItem(SKU, 1);
+                                                    arrShoppingList.push(item);
+
+                                                    var data;
+                                                    data += "<tr id=\"tr" + item.SKU + "\">";
+                                                    data += "<td>" + item.SKU + "</td>";
+                                                    data += "<td>" + itemName + "</td>";
+                                                    data += "<td><label id=\"lblQuantity" + item.SKU + "\">" + item.quantity + "</label></td>";
+                                                    data += "<td><a class=\"plus ui-btn ui-btn-corner-all ui-btn-icon-notext ui-icon-plus\" data-mini=\"true\"  role=\"button\">" + item.SKU + "</a></td>";
+                                                    data += "<td><a class=\"minus ui-btn ui-btn-corner-all ui-btn-icon-notext ui-icon-minus\" data-mini=\"true\"  role=\"button\">" + item.SKU + "</a></td>";
+                                                    data += "<td><a class=\"remove ui-btn ui-btn-corner-all ui-btn-icon-notext ui-icon-delete\" data-mini=\"true\" role=\"button\">" + item.SKU + "</a></td>";
+                                                    data += "</tr>";
+
+                                                    $("#shoppingCartDisplay").append(data);
+                                                } else {
+                                                    alert("Item not found.");
+                                                }
+                                            },
+                                            error: function (xhr, status, error) {
+                                                alert("Error adding item to cart: " + error);
+                                                hideLoader();
+                                                ajaxResultsError(xhr, status, error);
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    alert("QR Code not found.");
+                                }
+                            },
+                            function (error) {
+                                alert("Scanning failed: " + error);
+                            }
+                    );
+                });
+
+                $("#uploadShoppingList").click(function () {
+                    alert("Uploading shopping list to server...");
+                    $.each(arrShoppingList, function (index, value) {
+                    });
+                    if (arrShoppingList == "" || arrShoppingList == null) {
+                        alert("Upload failed. Shopping List is empty!");
+                    } else {
+                        var shoppingList = "";
+                        var size = arrShoppingList.length;
+                        //clear shopping list
+                        for (var i = 0; i < size; i++) {
+                            var SKU = arrShoppingList[i].SKU;
+                            var qty = arrShoppingList[i].quantity;
+                            if ((size - i) != 1) {
+                                shoppingList += SKU + "," + qty + ",";
+                            } else {
+                                shoppingList += SKU + "," + qty;
+                            }
+                        }
+                        if (size > 0) {
+                            url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.memberentity/uploadShoppingList";
+                            $.ajax({
+                                type: "GET",
+                                async: false,
+                                url: url,
+                                data: {'email': email, 'shoppingList': shoppingList},
+                                dataType: "text",
+                                success: function (val) {
+                                    if (val == "success") {
+                                        alert("Shopping cart uploaded successfully!");
+                                    } else {
+                                        alert("Failed to upload. Pls try again.");
+                                    }
+                                },
+                                error: function (xhr, status, error) {
+                                    alert("Error uploading shopping list: " + error);
+                                    hideLoader();
+                                    ajaxResultsError(xhr, status, error);
+                                }
+                            });
+                        }
+                    }
+                });
+
+                $("#syncWithPOS").click(function () {
+                    var qrCode = "";
+                    alert("PLEASE ENSURE THAT YOU HAVE UPLOADED YOUR SHOPPING CART OTHERWISE IT WON'T WORK!");
+                    cordova.plugins.barcodeScanner.scan(
+                            function (result) {
+                                qrCode = result.text;
+                                alert("QR Code found: " + qrCode);
+                                if (qrCode != "") {
+                                    url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.memberentity/syncWithPOS";
+                                    $.ajax({
+                                        type: "GET",
+                                        async: false,
+                                        url: url,
+                                        data: {'email': email, 'qrCode': qrCode},
+                                        dataType: "text",
+                                        success: function (val) {
+                                            if (val == "success") {
+                                                alert("Shopping cart synced successfully! Please make payemnt at the POS.");
+                                            } else {
+                                                alert("Failed to upload. Pls try again.");
+                                            }
+                                        },
+                                        error: function (xhr, status, error) {
+                                            alert("Error syncWithPOS: " + error);
+                                            hideLoader();
+                                            ajaxResultsError(xhr, status, error);
+                                        }
+                                    });
+                                }
+                            },
+                            function (error) {
+                                alert("Scanning failed: " + error);
+                            }
+                    );
+                });
+
+                $("#loginForm").submit(function (event) {
+                    email = $("#email").val();
+                    var password = $("#password").val();
+                    country = $("#country").val();
+                    url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.memberentity/login";
+                    $.ajax({
+                        type: "GET",
+                        async: false,
+                        url: url,
+                        data: {'email': email, 'password': password},
+                        dataType: "json",
+                        success: function (data) {
+                            if (data == "" || data == null) {
+                                alert("Failed to login.");
+                                $(':mobile-pagecontainer').pagecontainer('change', '#loginPage', {
+                                    transition: 'slide', reloadPage: false
+                                });
+                                location.reload(true);
+                            } else {
+                                localStorage.setItem("email", data.email);
+                                arrShoppingList = [];
+
+                                $(':mobile-pagecontainer').pagecontainer('change', '#productsPage', {
+                                    transition: 'slide'
+                                });
+                                event.preventDefault(); //prevent submitting back to index page
+
+                                //load products
+                                url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.itementity/furniture";
+                                $.ajax({
+                                    type: "GET",
+                                    async: false,
+                                    url: url,
+                                    data: {'country': country},
+                                    dataType: "json",
+                                    success: function (data) {
+                                        listOfFurniture = data;
+                                        $.each(data, function (key, value) {
+                                            var item_li = "";
+                                            var item_id = value.id;
+                                            var item_imageURL = value.imageUrl;
+                                            var item_name = value.name;
+                                            var item_description = value.description;
+                                            if (item_description == "" || item_description == null) {
+                                                item_description = "No description.";
+                                            }
+                                            item_li += "<li class=\"ui-first-child ui-last-child\">";
+                                            item_li += "<a href=\"#\" class=\"ui-btn ui-btn-icon-right ui-icon-carat-r\" data-transition=\"slide\" onclick=displayItem(" + item_id + ")>";
+                                            item_li += "<div>";
+                                            item_li += "<table><tbody>";
+                                            item_li += "<tr>";
+                                            item_li += "<td style=\"width: 10%;\"><img style=\"width: 100px;\" src='http://" + ip + ":8080" + item_imageURL + "'/></td>";
+                                            item_li += "<td style=\"width: 50%;\">";
+                                            item_li += "<div>";
+                                            item_li += "<div class=\"title\">";
+                                            item_li += item_name;
+                                            item_li += "</div>";
+                                            item_li += "<div class=\"description\" style=\"width: 200px;\">";
+                                            item_li += "<p>" + item_description + "</p>";
+                                            item_li += "</div></div></td>";
+                                            item_li += "</tr></tbody>";
+                                            item_li += "</table></div></a>";
+                                            item_li += "</li>";
+                                            $("#itemUL").append(item_li);
+                                        });
+                                    },
+                                    error: function (xhr, status, error) {
+                                        alert("Error retrieving furniture details: " + error);
+                                        hideLoader();
+                                        ajaxResultsError(xhr, status, error);
+                                    }
+                                });
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            alert("Error logging in: " + error);
+                            hideLoader();
+                            ajaxResultsError(xhr, status, error);
+                        }
+                    });
+                });
+
+            }).error(function () {
+                alert("Error setting up");
+            });
+        </script>
+        <!--------------------------------------- login page ------------------------------------------------>
+        <div data-role="page" id="loginPage" data-theme="a">
+            <div data-role="header" style="background-color: floralwhite;">
+                <div id="current_header_title">
+                    <h6 style="text-align: center;">
+                        <img style="width: 40%;" src='img/logo.png'/>
+                    </h6>
+                </div>
+            </div>
+            <div data-role="main">  
+                <h4 style="text-align: center; text-shadow: none;">
+                    Welcome to Island Furniture!
+                </h4>
+                <div id="landmark-1" data-landmark-id="1">
+                    <form id="loginForm" method="post">
+                        <div data-role="fieldcontain" class="ui-hide-label">
+                            <label for="email">Email:</label>
+                            <input type="email" required name="email" id="email" value="" placeholder="Registered Email"/>
+                        </div>
+                        <div data-role="fieldcontain" class="ui-hide-label">
+                            <label for="password">Password:</label>
+                            <input type="password" required name="password" id="password" value="" placeholder="Password"/>
+                        </div>
+                        <div class="ui-select">
+                            <select name="country" required id="country" data-mini="true" data-native-menu="false" tabindex="-1">
+                                <option value="" data-placeholder="true">Select your country</option>
+                                <script>
+                                    function loadCountry() {
+                                        url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.countryentity/country";
+                                        $.ajax({
+                                            async: false,
+                                            url: url,
+                                            data: {},
+                                            dataType: "json",
+                                            success: function (data) {
+                                                var x;
+                                                $.each(data, function (key, value) {
+                                                    x += "<option value=\"" + value.name + "\">" + value.name + "</option>";
+                                                });
+                                                $('#country').append(x);
+                                                $('#country').selectmenu('refresh');
+                                            },
+                                            error: function (xhr, status, error) {
+                                                alert("Error retrieving countries: " + error);
+                                                hideLoader();
+                                                ajaxResultsError(xhr, status, error);
+                                            }
+                                        });
+                                    }
+                                    $(function () {
+                                        loadCountry();
+                                    });
+
+                                </script>
+                            </select>
+                        </div>
+                        <input type="submit" id="login" data-icon="action" data-mini="true" value="Login"/>
+                        <a href="#" id="register" rel="external" data-icon="edit" data-mini="true" data-role="button" data-theme="a">Register</a>
+
+                    </form>
+                </div>  
+            </div>
+            <br>
+            <div data-role="footer" class="navbar navbar-fixed-bottom">
+                <h5>&copy; Island Furniture</h5>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            $("#dialogshow").click(function () {
+                $("#dialogmessage").text("Hello world!");
+                $("#dialog1").show();
+            });
+            $("#dialogbutton").click(function () {
+                $("#dialog1").hide();
+            });
+
+            $("#register").click(function () {
+                window.open("http://" + ip + ":8080/IS3102_Project-war/B/memberLogin.jsp", '_system');
+            });
+            function contact() {
+                window.open("http://" + ip + ":8080/IS3102_Project-war/B/SG/contactUs.jsp", '_system');
+            }
+
+            function map() {
+                window.open("http://" + ip + ":8080/IS3102_Project-war/B/SG/virtualStore.jsp", '_system');
+            }
+
+            function logout() {
+                localStorage.removeItem("email");
+                localStorage.removeItem("arrShoppingList" + email);
+                $(':mobile-pagecontainer').pagecontainer('change', '#loginPage', {
+                    transition: 'slide', reloadPage: false
+                });
+                location.reload(true);
+            }
+
+        </script>
+        <!---------------------------------------end login page ------------------------------------------------>
+
+
+        <!--------------------------------------- products page ------------------------------------------------>
+        <div data-role="page" id="productsPage" data-theme="a">
+            <div data-role="header" style="">
+                <div id="current_header_title">
+                    <h3 style="text-align: center;">
+                        Products
+                    </h3>
+                </div>
+            </div>
+            <div role="main" class="ui-content">
+                <ul id="itemUL" class="ui-listview ui-listview-inset ui-corner-all ui-shadow" data-role="listview" data-inset="true">
+
+                </ul>
+            </div>
+            <br>
+            <div data-role="footer" class="navbar navbar-fixed-bottom">
+                <div data-role="navbar" >
+                    <ul>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="bars" style="background-color: #D9534F" href="#productsPage">Products</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="phone" onclick=contact()>Contact Us</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="shop" href="#shoppingCartPage">Shopping Cart</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="user" onclick=loadAccount() href="#accountPage">Account</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="location" onclick=map() href="#">Map</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="power" onclick=logout() href="#">Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!--------------------------------------- end products page ------------------------------------------------>
+        <script>
+            function displayItem(item_id) {
+                //alert(item_id);
+                var item_imageURL;
+                var item_name;
+                var item_description;
+                var item_length;
+                var item_width;
+                var item_height;
+                var item_type;
+                var item_SKU;
+                $.each(listOfFurniture, function (key, value) {
+                    if (value.id == item_id) {
+                        item_imageURL = "http://" + ip + ":8080" + value.imageUrl;
+                        item_name = value.name;
+                        item_description = value.description;
+                        item_length = value.length;
+                        item_width = value.width;
+                        item_height = value.height;
+                        item_type = value.type;
+                        item_SKU = value.SKU;
+                    }
+                });
+                $("#productImage").attr("src", item_imageURL);
+                $("#item_name").text(item_name);
+                $("#item_SKU").text(item_SKU);
+                $("#item_description").text(item_description);
+                $("#item_type").text(item_type);
+                $("#item_length").text(item_length);
+                $("#item_width").text(item_width);
+                $("#item_height").text(item_height);
+                var item_volume = item_length * item_width * item_height;
+                $("#item_volume").text(item_volume);
+
+                $(':mobile-pagecontainer').pagecontainer('change', '#displayItemPage', {
+                    transition: 'slide'
+                });
+            }
+        </script>
+        <!--------------------------------------- product item page ------------------------------------------------>
+        <div data-role="page" data-title="Product Details" id="displayItemPage" data-theme="a">
+            <div class="ui-header ui-bar-inherit" data-position="inline" data-role="header" role="banner">
+                <div id="current_header_title">
+                    <h1 class="ui-title" role="heading" aria-level="1" style=""><label id="item_name"></label></h1>
+                </div>
+                <a class="ui-link ui-btn-left ui-btn ui-icon-carat-l ui-btn-icon-notext ui-shadow ui-corner-all" data-icon="carat-l" data-iconpos="notext" data-rel="back" href="#" data-role="button" role="button">Back</a>
+            </div>
+            <div role="main" class="ui-content">
+                <div>
+                    <div>
+                        <img src="" id="productImage" style="width:200px;" />
+                    </div>
+                    <div>
+                        <h4>SKU</h4>
+                        <label id="item_SKU"></label>
+                        <h4>Description</h4>
+                        <label id="item_description"></label>
+                        <h4>Type</h4>
+                        <label id="item_type"></label>
+                        <h4>Dimensions</h4>
+                        <p>
+                            Length (cm):
+                            <label style="display: inline" id="item_length"></label>
+                        </p>
+                        <p>
+                            Width (cm):
+                            <label style="display: inline" id="item_width"></label>
+                        </p>
+                        <p>
+                            Height (cm):
+                            <label style="display: inline" id="item_height"></label>
+                        </p>
+                        <p>
+                            Volume (cm<sup>3</sup>):
+                            <label style="display: inline" id="item_volume"></label>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div data-role="footer" class="navbar navbar-fixed-bottom">
+                <div data-role="navbar">
+                    <ul>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="bars" style="background-color: #D9534F" href="#productsPage">Products</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="phone" onclick=contact()>Contact Us</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="shop" href="#shoppingCartPage">Shopping Cart</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="user" onclick=loadAccount() href="#accountPage">Account</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="location" onclick=map() href="#">Map</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="power" onclick=logout() href="#">Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+
+        <!--------------------------------------- end product item page ------------------------------------------------>
+        <script>
+
+
+        </script>
+
+        <!--------------------------------------- shopping cart page ------------------------------------------------>
+        <div data-role="page" id="shoppingCartPage" data-theme="a">
+            <div data-role="header" style="">
+                <div id="current_header_title">
+                    <h3 style="text-align: center;">
+                        Shopping Cart
+                    </h3>
+                </div>
+            </div>
+            <div role="main">
+                <br>
+                <table style="width:100%;" class="table table-stripe table-bordered">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">SKU</th>
+                            <th style="width:65%;">Name</th>
+                            <th style="width:10%;">Qty</th>
+                            <th style="width:5%;">Plus</th>
+                            <th style="width:5%;">Minus</th>
+                            <th style="width:5%;">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shoppingCartDisplay">
+
+                    </tbody>
+                </table>
+                <a id="addItemToCart" class="ui-btn ui-btn-corner-all ui-icon-search" data-mini="true" role="button">Step 1: Add to Cart (Scan QR Code)</a>
+                <a id="uploadShoppingList" class="ui-btn ui-btn-corner-all ui-icon-search" data-mini="true" role="button">Step 2: Upload Shopping Cart</a>
+                <a id="syncWithPOS" class="ui-btn ui-btn-corner-all ui-icon-search" data-mini="true" role="button">Step 3: Sync With POS</a>
+
+            </div>
+            <br>
+            <div data-role="footer" class="navbar navbar-fixed-bottom">
+                <div data-role="navbar">
+                    <ul>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="bars" href="#productsPage">Products</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="phone" onclick=contact()>Contact Us</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="shop" style="background-color: #D9534F" href="#shoppingCartPage">Shopping Cart</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="user" onclick=loadAccount() href="#accountPage">Account</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="location" onclick=map() href="#">Map</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="power" onclick=logout() href="#">Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!--------------------------------------- end shopping cart page ------------------------------------------------>
+
+
+        <script type="text/javascript">
+
+            function loadAccount() {
+                //load account details
+                url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.memberentity/account";
+                $.ajax({
+                    type: "GET",
+                    async: false,
+                    url: url,
+                    data: {'email': email},
+                    dataType: "json",
+                    success: function (data) {
+                        var strEmail = data.email;
+                        var strName = data.name;
+                        var strTier = data.tier;
+                        var intPoints = data.pointsEarned;
+                        var dblSpent = data.amountSpent;
+                        var arrWishList = data.wishList;
+
+                        $("#lblName").text(strName);
+                        $("#lblEmail").text(strEmail);
+                        $("#lblTier").text(strTier);
+                        $("#lblPoints").text(intPoints);
+                        $("#lblSpending").text(dblSpent);
+
+                        $("#lblWishListQty").text(arrWishList.length);
+                        $('li').remove('.wish_li');
+                        // arrWishList = ["F1: Table 1","F2: Table 2","F3: Chair 1"];
+                        for (var i = 0; i < arrWishList.length; i++) {
+                            $("#wishlist").append("<li class=\"wish_li ui-li-static ui-body-inherit ui-first-child ui-last-child\">" + arrWishList[i] + "</li>");
+                        }
+                    }
+                    ,
+                    error: function (xhr, status, error) {
+                        alert("Error retrieving account details: " + error);
+                        hideLoader();
+                        ajaxResultsError(xhr, status, error);
+                    }
+                });
+            }
+
+        </script>
+
+        <!--------------------------------------- account page ------------------------------------------------>
+        <div data-role="page" id="accountPage" data-theme="a">
+            <div data-role="header" style="">
+                <div id="current_header_title">
+                    <h3 style="text-align: center;">
+                        Account
+                    </h3>
+                </div>
+            </div>
+            <div role="main">
+                <table data-role="table" class="ui-responsive" style="color: #D9534F; border: #000">
+                    <thead>
+                        <tr>
+                            <th>Name:</th>
+                            <th>Email:</th>
+                            <th>Tier:</th>
+                            <th>Points Earned (USD):</th>
+                            <th>Cumulative Spending (USD):</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><label id="lblName" style="display: inline-block"></label></td>
+                            <td><label id="lblEmail" style="display: inline-block"></label></td>
+                            <td><label id="lblTier" style="display: inline-block"></label></td>
+                            <td><label id="lblPoints" style="display: inline-block"></label></td>
+                            <td><label id="lblSpending" style="display: inline-block"></label></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div data-role="collapsible-set">
+                    <div data-role="collapsible" data-collapsed="true">
+                        <h4 style="color: #D9534F; font-weight: bolder;">Wish List (<label id="lblWishListQty" style="display: inline-block">0</label>)</h4>
+                        <ul id="wishlist" data-role="listview">
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <br>
+            <div data-role="footer" class="navbar navbar-fixed-bottom">
+                <div data-role="navbar">
+                    <ul>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="bars" href="#productsPage">Products</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="phone" onclick=contact()>Contact Us</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="shop" href="#shoppingCartPage">Shopping Cart</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="user" onclick=loadAccount() style="background-color: #D9534F" href="#accountPage">Account</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="location" onclick=map() href="#">Map</a></li>
+                        <li class="ui-shadow  ui-shadow-icon"><a data-icon="power" onclick=logout() href="#">Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!--------------------------------------- end account page ------------------------------------------------>
+
+    </body>
+</html>

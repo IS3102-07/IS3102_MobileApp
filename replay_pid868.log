@@ -1,0 +1,10 @@
+JvmtiExport can_access_local_variables 0
+JvmtiExport can_hotswap_or_post_breakpoint 0
+JvmtiExport can_post_on_exceptions 0
+# 97 ciObject found
+instanceKlass com/google/common/hash/HashCode
+instanceKlass sun/security/provider/ByteArrayAccess
+instanceKlass com/google/common/hash/AbstractHasher
+instanceKlass sun/security/jca/GetInstance$Instance
+instanceKlass java/security/Provider$UString
+instanceKlass java/security/Provider$Service
