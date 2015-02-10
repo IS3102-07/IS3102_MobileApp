@@ -383,7 +383,7 @@
                                 <option value="" data-placeholder="true">Select your country</option>
                                 <script>
                                     function loadCountry() {
-                                        url = "http://" + ip + ":8080/IS3102_MobileWS/webresources/entity.countryentity/country";
+                                        url = "http://" + ip + ":8383/IS3102_MobileWS/webresources/entity.countryentity/country";
                                         $.ajax({
                                             async: false,
                                             url: url,
@@ -399,8 +399,8 @@
                                             },
                                             error: function (xhr, status, error) {
                                                 alert("Error retrieving countries: " + error);
-                                                hideLoader();
-                                                ajaxResultsError(xhr, status, error);
+                                                //hideLoader();
+                                                //ajaxResultsError(xhr, status, error);
                                             }
                                         });
                                     }
